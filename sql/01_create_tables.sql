@@ -1,4 +1,5 @@
 -- ========================
+
 -- DATABASE: EduTrack
 -- ========================
 
@@ -6,6 +7,7 @@
 CREATE TABLE auth_user (
     id SERIAL PRIMARY KEY,
     username VARCHAR(150) UNIQUE NOT NULL,
+
     password VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     first_name VARCHAR(100),
@@ -13,6 +15,7 @@ CREATE TABLE auth_user (
     is_active BOOLEAN DEFAULT TRUE,
     is_staff BOOLEAN DEFAULT FALSE,
     is_superuser BOOLEAN DEFAULT FALSE,
+
     date_joined TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -21,6 +24,7 @@ CREATE TABLE role (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL
 );
+
 
 -- USER PROFILE (extends auth_user)
 CREATE TABLE user_profile (
@@ -31,6 +35,7 @@ CREATE TABLE user_profile (
     address TEXT,
     date_of_birth DATE,
     gender VARCHAR(10),
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -52,6 +57,7 @@ CREATE TABLE program (
 -- COURSES
 CREATE TABLE course (
     id SERIAL PRIMARY KEY,
+
     program_id INT REFERENCES program(id) ON DELETE CASCADE,
     code VARCHAR(20) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -68,7 +74,51 @@ CREATE TABLE subject (
     description TEXT
 );
 
--- CLASSROOMS
+-- CLASSROOMStamp
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for DELETE operations
+CREATE OR REPLACE FUNCTION log_audi_delete() RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO log_udit (
+        table_nae,
+        oeration,
+        old_data,
+        new_data,
+        changed_by,
+        changed_at
+    ) VALUES (
+        TG_TABLE_NAME,
+        'DELETE',
+        row_to_json(OLD),
+        NULL,
+        current_user,
+        current_timestamp
+    );
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for all tables that need auditing
+CREATE TRIGGER audit_student_insert
+    AFTER INSERT ON student
+    FOR EACH ROW
+    EXECUTE FUNCTION log_audit_insert();
+
+CREATE TRIGGER audit_student_update
+    AFTER UPDATE ON student
+    FOR EACH ROW
+    EXECUTE FUNCTION log_audit_update();
+
+CREATE TRIGGER audit_student_delete
+    AFTER DELETE ON student
+    FOR EACH ROW
+    EXECUTE FUNCTION log_audit_delete();
+
+CREATE TRIGGER audit_course_insert
 CREATE TABLE classroom (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -132,6 +182,21 @@ CREATE TABLE grade (
     grade NUMERIC(5,2) NOT NULL,
     remarks VARCHAR(100)
 );
+
+-- STUDENT TABLE
+CREATE TABLE student (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES auth_user(id) ON DELETE CASCADE,
+    enrollment_number VARCHAR(50) UNIQUE NOT NULL,
+    admission_date DATE DEFAULT CURRENT_DATE,
+    guardian_name VARCHAR(100),
+    guardian_contact VARCHAR(20),
+    year_level VARCHAR(50),      -- e.g., "Freshman", "Sophomore"
+    section VARCHAR(50),
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'graduated', 'suspended')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 
 -- LMS CONTENT
 CREATE TABLE lms_content (
