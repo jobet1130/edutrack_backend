@@ -2,25 +2,52 @@ version: '3.9'
 
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: gunicorn edutrack_backend.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
     depends_on:
       - db
     env_file:
       - .env
-  db:
-    image: postgres:15
-    volumes:
-      - .:/var/lib/postgresql/data
-      - ./postgres-data:/var/lib/postgresql/data
     restart: always
+
+  db:
+    image: postgres:15-alpine
+    container_name: edutrack_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
-    env_file:
-      - .env
-  
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    container_name: edutrack_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - web
+    restart: always
+
 volumes:
-  postgres-data:
+  postgres_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
     driver: local
